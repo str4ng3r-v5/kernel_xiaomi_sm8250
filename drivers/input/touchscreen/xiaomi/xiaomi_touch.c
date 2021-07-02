@@ -571,12 +571,6 @@ static DEVICE_ATTR(set_update, (S_IRUGO | S_IWUSR | S_IWGRP),
 static DEVICE_ATTR(bump_sample_rate, (S_IRUGO | S_IWUSR | S_IWGRP),
 		   bump_sample_rate_start, bump_sample_rate_store);
 
-static DEVICE_ATTR(set_update, (S_IRUGO | S_IWUSR | S_IWGRP),
-		   set_update_show, set_update_store);
-
-static DEVICE_ATTR(bump_sample_rate, (S_IRUGO | S_IWUSR | S_IWGRP),
-		   bump_sample_rate_start, bump_sample_rate_store);
-
 static DEVICE_ATTR(log_debug, (S_IRUGO | S_IWUSR | S_IWGRP),
 		   xiaomi_touch_log_debug_show, xiaomi_touch_log_debug_store);
 #if XIAOMI_ROI
@@ -588,14 +582,11 @@ static DEVICE_ATTR(partial_diff_data, (S_IRUGO | S_IWUSR | S_IWGRP),
 static DEVICE_ATTR(resolution_factor, 0644, resolution_factor_show, NULL);
 
 static struct attribute *touch_attr_group[] = {
-	&dev_attr_palm_sensor.attr,
-	&dev_attr_p_sensor.attr,
-	&dev_attr_panel_vendor.attr,
-	&dev_attr_panel_color.attr,
+	&dev_attr_palm_sensor.attr,	  &dev_attr_p_sensor.attr,
+	&dev_attr_panel_vendor.attr,	  &dev_attr_panel_color.attr,
+	&dev_attr_panel_display.attr,	  &dev_attr_touch_vendor.attr,
 	&dev_attr_set_update.attr,
 	&dev_attr_bump_sample_rate.attr,
-	&dev_attr_panel_display.attr,
-	&dev_attr_touch_vendor.attr,
 	&dev_attr_log_debug.attr,
 #if XIAOMI_ROI
 	&dev_attr_partial_diff_data.attr,
