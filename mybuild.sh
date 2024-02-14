@@ -19,7 +19,4 @@ PATH="/home/user/clang/bin:$PATH"
 make O=out clean mrproper
 make O=out CC=clang ARCH=arm64 $DEFCONFIG
 
-make O=out CC=clang -j$(nproc --all) \
-    CFLAGS="-O2 -march=armv8-a -mcpu=kryo585 -flto=full -mllvm -polly -funroll-loops" \
-    LDFLAGS="-O2 -flto=full -mllvm -polly -inline-threshold=100"
-
+make O=out CC=clang -j$(nproc --all)
