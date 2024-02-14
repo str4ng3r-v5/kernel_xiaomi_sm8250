@@ -1739,11 +1739,11 @@ static int __do_execve_file(int fd, struct filename *filename,
 			    struct user_arg_ptr envp,
 			    int flags, struct file *file)
 {
-        ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
 	char *pathbuf = NULL;
 	struct linux_binprm *bprm;
 	struct files_struct *displaced;
 	int retval;
+	ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
 
 	if (IS_ERR(filename))
 		return PTR_ERR(filename);
