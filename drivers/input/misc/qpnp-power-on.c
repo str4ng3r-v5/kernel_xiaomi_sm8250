@@ -490,6 +490,10 @@ static ssize_t debounce_us_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(debounce_us);
 
+/* 
+
+Unused functions
+
 static ssize_t qpnp_pshold_reboot_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -527,6 +531,10 @@ static ssize_t qpnp_pshold_reboot_store(struct device *dev,
 
 	return size;
 }
+
+Unused functions
+
+*/
 
 // static DEVICE_ATTR(pshold_reboot, 0664, qpnp_pshold_reboot_show, qpnp_pshold_reboot_store);
 
