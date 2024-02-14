@@ -528,7 +528,7 @@ static ssize_t qpnp_pshold_reboot_store(struct device *dev,
 	return size;
 }
 
-static DEVICE_ATTR(pshold_reboot, 0664, qpnp_pshold_reboot_show, qpnp_pshold_reboot_store);
+// static DEVICE_ATTR(pshold_reboot, 0664, qpnp_pshold_reboot_show, qpnp_pshold_reboot_store);
 
 static int qpnp_pon_reset_config(struct qpnp_pon *pon,
 				 enum pon_power_off_type type)
