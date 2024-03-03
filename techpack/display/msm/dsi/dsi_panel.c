@@ -531,7 +531,8 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 
 	if (panel->mi_cfg.is_tddi_flag) {
 		if (!panel->mi_cfg.tddi_doubleclick_flag || panel->mi_cfg.panel_dead_flag) {
-			if (gpio_is_valid(panel->reset_config.reset_gpio))
+			if (gpio_is_valid(panel->reset_config.reset_gpio)) {
+				
 				gpio_set_value(panel->reset_config.reset_gpio, 0);
 
 				if (gpio_is_valid(panel->reset_config.tp_reset_gpio) && !panel->reset_gpio_always_on
@@ -542,8 +543,10 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 							panel->reset_config.tp_reset_gpio);
 					}
 				}
+			}	
 		}
-	} else {
+	} 
+	else {
 		if (gpio_is_valid(panel->reset_config.reset_gpio) &&
 						!panel->reset_gpio_always_on)
 			gpio_set_value(panel->reset_config.reset_gpio, 0);
@@ -1636,7 +1639,6 @@ static int dsi_panel_parse_qsync_caps(struct dsi_panel *panel,
 	u32 val = 0, i;
 	struct dsi_qsync_capabilities *qsync_caps = &panel->qsync_caps;
 	struct dsi_parser_utils *utils = &panel->utils;
-	const char *name = panel->name;
 
 	/**
 	 * "mdss-dsi-qsync-min-refresh-rate" is defined in cmd mode and
