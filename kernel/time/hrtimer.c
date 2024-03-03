@@ -51,7 +51,6 @@
 #include <linux/timer.h>
 #include <linux/freezer.h>
 #include <linux/compat.h>
-#include <linux/delay.h>
 
 #include <linux/uaccess.h>
 
@@ -179,7 +178,6 @@ struct hrtimer_clock_base *lock_hrtimer_base(const struct hrtimer *timer,
 			raw_spin_unlock_irqrestore(&base->cpu_base->lock, *flags);
 		}
 		cpu_relax();
-		ndelay(TIMER_LOCK_TIGHT_LOOP_DELAY_NS);
 	}
 }
 
@@ -978,6 +976,7 @@ static int enqueue_hrtimer(struct hrtimer *timer,
 			   enum hrtimer_mode mode)
 {
 	debug_activate(timer, mode);
+	WARN_ON_ONCE(!base->cpu_base->online);
 
 	base->cpu_base->active_bases |= 1 << base->index;
 
@@ -1156,13 +1155,13 @@ static int __hrtimer_start_range_ns(struct hrtimer *timer, ktime_t tim,
 		new_base = base;
 	}
 
-	/* Update pinned state */
-	timer->state &= ~HRTIMER_STATE_PINNED;
-	timer->state |= (!!(mode & HRTIMER_MODE_PINNED)) << HRTIMER_PINNED_SHIFT;
-
 	first = enqueue_hrtimer(timer, new_base, mode);
 	if (!force_local)
 		return first;
+
+	/* Update pinned state */
+	timer->state &= ~HRTIMER_STATE_PINNED;
+	timer->state |= (!!(mode & HRTIMER_MODE_PINNED)) << HRTIMER_PINNED_SHIFT;
 
 	/*
 	 * Timer was forced to stay on the current CPU to avoid
@@ -1256,7 +1255,6 @@ int hrtimer_cancel(struct hrtimer *timer)
 		if (ret >= 0)
 			return ret;
 		cpu_relax();
-		ndelay(TIMER_LOCK_TIGHT_LOOP_DELAY_NS);
 	}
 }
 EXPORT_SYMBOL_GPL(hrtimer_cancel);
@@ -1905,6 +1903,7 @@ int hrtimers_prepare_cpu(unsigned int cpu)
 	cpu_base->softirq_next_timer = NULL;
 	cpu_base->expires_next = KTIME_MAX;
 	cpu_base->softirq_expires_next = KTIME_MAX;
+	cpu_base->online = 1;
 	return 0;
 }
 
@@ -1970,12 +1969,13 @@ static void __migrate_hrtimers(unsigned int scpu, bool remove_pinned)
 	local_irq_save(flags);
 	old_base = &per_cpu(hrtimer_bases, scpu);
 	new_base = this_cpu_ptr(&hrtimer_bases);
+
 	/*
 	 * The caller is globally serialized and nobody else
 	 * takes two locks at once, deadlock is not possible.
 	 */
-	raw_spin_lock(&new_base->lock);
-	raw_spin_lock_nested(&old_base->lock, SINGLE_DEPTH_NESTING);
+	raw_spin_lock(&old_base->lock);
+	raw_spin_lock_nested(&new_base->lock, SINGLE_DEPTH_NESTING);
 
 	for (i = 0; i < HRTIMER_MAX_CLOCK_BASES; i++) {
 		migrate_hrtimer_list(&old_base->clock_base[i],
@@ -1988,7 +1988,7 @@ static void __migrate_hrtimers(unsigned int scpu, bool remove_pinned)
 	 */
 	hrtimer_update_softirq_timer(new_base, false);
 
-	raw_spin_unlock(&old_base->lock);
+        raw_spin_unlock(&old_base->lock);
 	raw_spin_unlock(&new_base->lock);
 
 	/* Check, if we got expired work to do */
