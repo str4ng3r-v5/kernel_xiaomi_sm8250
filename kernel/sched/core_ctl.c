@@ -457,11 +457,6 @@ static const struct sysfs_ops sysfs_ops = {
 	.store	= store,
 };
 
-static struct kobj_type ktype_core_ctl = {
-	.sysfs_ops	= &sysfs_ops,
-	.default_attrs	= default_attrs,
-};
-
 /* ==================== runqueue based core count =================== */
 
 static struct sched_avg_stats nr_stats[NR_CPUS];
@@ -1160,31 +1155,6 @@ static void __ref do_core_ctl(struct cluster_data *cluster)
 	}
 }
 
-static int __ref try_core_ctl(void *data)
-{
-	struct cluster_data *cluster = data;
-	unsigned long flags;
-
-	while (1) {
-		set_current_state(TASK_INTERRUPTIBLE);
-		spin_lock_irqsave(&cluster->pending_lock, flags);
-		if (!cluster->pending) {
-			spin_unlock_irqrestore(&cluster->pending_lock, flags);
-			schedule();
-			if (kthread_should_stop())
-				break;
-			spin_lock_irqsave(&cluster->pending_lock, flags);
-		}
-		set_current_state(TASK_RUNNING);
-		cluster->pending = false;
-		spin_unlock_irqrestore(&cluster->pending_lock, flags);
-
-		do_core_ctl(cluster);
-	}
-
-	return 0;
-}
-
 static int isolation_cpuhp_state(unsigned int cpu,  bool online)
 {
 	struct cpu_data *state = &per_cpu(cpu_state, cpu);
@@ -1247,112 +1217,3 @@ static int core_ctl_isolation_dead_cpu(unsigned int cpu)
 }
 
 /* ============================ init code ============================== */
-
-#if 0
-static struct cluster_data *find_cluster_by_first_cpu(unsigned int first_cpu)
-{
-	unsigned int i;
-
-	for (i = 0; i < num_clusters; ++i) {
-		if (cluster_state[i].first_cpu == first_cpu)
-			return &cluster_state[i];
-	}
-
-	return NULL;
-}
-
-static int cluster_init(const struct cpumask *mask)
-{
-	struct device *dev;
-	unsigned int first_cpu = cpumask_first(mask);
-	struct cluster_data *cluster;
-	struct cpu_data *state;
-	unsigned int cpu;
-	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
-
-	if (find_cluster_by_first_cpu(first_cpu))
-		return 0;
-
-	dev = get_cpu_device(first_cpu);
-	if (!dev)
-		return -ENODEV;
-
-	pr_info("Creating CPU group %d\n", first_cpu);
-
-	if (num_clusters == MAX_CLUSTERS) {
-		pr_err("Unsupported number of clusters. Only %u supported\n",
-								MAX_CLUSTERS);
-		return -EINVAL;
-	}
-	cluster = &cluster_state[num_clusters];
-	++num_clusters;
-
-	cpumask_copy(&cluster->cpu_mask, mask);
-	cluster->num_cpus = cpumask_weight(mask);
-	if (cluster->num_cpus > MAX_CPUS_PER_CLUSTER) {
-		pr_err("HW configuration not supported\n");
-		return -EINVAL;
-	}
-	cluster->first_cpu = first_cpu;
-	cluster->min_cpus = 1;
-	cluster->max_cpus = cluster->num_cpus;
-	cluster->need_cpus = cluster->num_cpus;
-	cluster->offline_delay_ms = 100;
-	cluster->task_thres = UINT_MAX;
-	cluster->nr_prev_assist_thresh = UINT_MAX;
-	cluster->nrrun = cluster->num_cpus;
-	cluster->enable = true;
-	cluster->nr_not_preferred_cpus = 0;
-	cluster->strict_nrrun = 0;
-	INIT_LIST_HEAD(&cluster->lru);
-	spin_lock_init(&cluster->pending_lock);
-
-	for_each_cpu(cpu, mask) {
-		pr_info("Init CPU%u state\n", cpu);
-
-		state = &per_cpu(cpu_state, cpu);
-		state->cluster = cluster;
-		state->cpu = cpu;
-		list_add_tail(&state->sib, &cluster->lru);
-	}
-	cluster->active_cpus = get_active_cpu_count(cluster);
-
-	cluster->core_ctl_thread = kthread_run(try_core_ctl, (void *) cluster,
-					"core_ctl/%d", first_cpu);
-	if (IS_ERR(cluster->core_ctl_thread))
-		return PTR_ERR(cluster->core_ctl_thread);
-
-	sched_setscheduler_nocheck(cluster->core_ctl_thread, SCHED_FIFO,
-				   &param);
-
-	cluster->inited = true;
-
-	kobject_init(&cluster->kobj, &ktype_core_ctl);
-	return kobject_add(&cluster->kobj, &dev->kobj, "core_ctl");
-}
-
-static int __init core_ctl_init(void)
-{
-	struct sched_cluster *cluster;
-	int ret;
-
-	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
-			"core_ctl/isolation:online",
-			core_ctl_isolation_online_cpu, NULL);
-
-	cpuhp_setup_state_nocalls(CPUHP_CORE_CTL_ISOLATION_DEAD,
-			"core_ctl/isolation:dead",
-			NULL, core_ctl_isolation_dead_cpu);
-
-	for_each_sched_cluster(cluster) {
-		ret = cluster_init(&cluster->cpus);
-		if (ret)
-			pr_warn("unable to create core ctl group: %d\n", ret);
-	}
-
-	initialized = true;
-	return 0;
-}
-
-late_initcall(core_ctl_init);
-#endif
