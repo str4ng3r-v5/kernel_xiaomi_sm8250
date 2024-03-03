@@ -457,11 +457,6 @@ static const struct sysfs_ops sysfs_ops = {
 	.store	= store,
 };
 
-static struct kobj_type ktype_core_ctl = {
-	.sysfs_ops	= &sysfs_ops,
-	.default_attrs	= default_attrs,
-};
-
 /* ==================== runqueue based core count =================== */
 
 static struct sched_avg_stats nr_stats[NR_CPUS];
@@ -1160,31 +1155,6 @@ static void __ref do_core_ctl(struct cluster_data *cluster)
 	}
 }
 
-static int __ref try_core_ctl(void *data)
-{
-	struct cluster_data *cluster = data;
-	unsigned long flags;
-
-	while (1) {
-		set_current_state(TASK_INTERRUPTIBLE);
-		spin_lock_irqsave(&cluster->pending_lock, flags);
-		if (!cluster->pending) {
-			spin_unlock_irqrestore(&cluster->pending_lock, flags);
-			schedule();
-			if (kthread_should_stop())
-				break;
-			spin_lock_irqsave(&cluster->pending_lock, flags);
-		}
-		set_current_state(TASK_RUNNING);
-		cluster->pending = false;
-		spin_unlock_irqrestore(&cluster->pending_lock, flags);
-
-		do_core_ctl(cluster);
-	}
-
-	return 0;
-}
-
 static int isolation_cpuhp_state(unsigned int cpu,  bool online)
 {
 	struct cpu_data *state = &per_cpu(cpu_state, cpu);
@@ -1234,16 +1204,6 @@ static int isolation_cpuhp_state(unsigned int cpu,  bool online)
 		wake_up_core_ctl_thread(cluster);
 
 	return 0;
-}
-
-static int core_ctl_isolation_online_cpu(unsigned int cpu)
-{
-	return isolation_cpuhp_state(cpu, true);
-}
-
-static int core_ctl_isolation_dead_cpu(unsigned int cpu)
-{
-	return isolation_cpuhp_state(cpu, false);
 }
 
 /* ============================ init code ============================== */
